@@ -47,12 +47,17 @@ jobs:
         # Eliminate optional test frameworks and helper maps (~60 MB)
         rm -f "$RUNNER_TEMP/swift/usr/bin/swift-test" "$RUNNER_TEMP/swift/usr/bin/swift-demangle"
         
-        # Force-delete heavy static asset archives if not compiling static self-contained packages (~300 MB)
-        find "$RUNNER_TEMP/swift/usr/lib/swift/linux" -type f -name "*.a" -delete
+        # Wipe out all man pages, share files, and documentation (~100 MB)
+        rm -rf "$RUNNER_TEMP/swift/usr/share"
 
-        # 4. Aggressively strip symbols using absolute binaries to ensure reduction (~1.2 GB+ saved)
-        # This targets the actual heavy components like swift-frontend and clang
-        echo "=== Stripping Debug Symbols ==="
+        # Force-delete heavy static asset archives across the entire lib tree (~400 MB+)
+        find "$RUNNER_TEMP/swift/usr/lib" -type f -name "*.a" -delete
+
+        # 4. Force write permissions and aggressively strip all symbols
+        # This fixes the 2.6 GB limit by ensuring 'strip' isn't blocked by read-only permissions
+        echo "=== Forcing Write Permissions and Stripping Bloat ==="
+        chmod -R +w "$RUNNER_TEMP/swift/usr/bin" "$RUNNER_TEMP/swift/usr/libexec"
+        
         find "$RUNNER_TEMP/swift/usr/bin" -type f -exec strip --strip-all {} + 2>/dev/null || true
         find "$RUNNER_TEMP/swift/usr/libexec" -type f -exec strip --strip-all {} + 2>/dev/null || true
         
