@@ -1,7 +1,7 @@
 name: Install and Reduce Swift Size on Ubuntu 26.04
 
 on:
- workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
   build-and-cleanup:
@@ -10,11 +10,6 @@ jobs:
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
-
-    - name: Install Essential Swift OS Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y binutils-gold binutils libc6-dev libicu-dev libcurl4 libxml2
 
     - name: Install Swift
       run: |
