@@ -22,9 +22,19 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      # Create a basic repro.cs file on the fly for testing
       - name: Create repro.cs
         run: |
-          echo 'Console.WriteLine("Hello from .NET 10 on " + Environment.OSVersion);' > repro.cs
+          cat << 'EOF' > repro.cs
+          using System.Diagnostics;
+
+          for (var i = 1; i <= 200; i++)
+          {
+              using var p = Process.Start(new ProcessStartInfo("/bin/sh", ["-c", "sleep 60 & sleep 60; wait"]) { RedirectStandardOutput = true })!;
+              Thread.Sleep(300);
+              p.Kill(entireProcessTree: true);
+              p.WaitForExit();
+          }
+          Console.WriteLine("completed 200 iterations");
+          EOF
 
       - run: dotnet run repro.cs
