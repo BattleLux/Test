@@ -39,21 +39,27 @@ jobs:
 
         # 3. Clean up non-compilation development toolbloat
         echo "=== Trimming Swift Toolchain Infrastructure ==="
-        cd "$RUNNER_TEMP/swift"
         
         # Eliminate the heavy LLDB debug engine (~450 MB)
-        rm -f usr/bin/lldb*
-        rm -rf usr/lib/liblldb*
+        rm -f  "$RUNNER_TEMP/swift/usr/bin/lldb"*
+        rm -rf "$RUNNER_TEMP/swift/usr/lib/liblldb"*
         
         # Eliminate optional test frameworks and helper maps (~60 MB)
-        rm -f usr/bin/swift-test usr/bin/swift-demangle
+        rm -f "$RUNNER_TEMP/swift/usr/bin/swift-test" "$RUNNER_TEMP/swift/usr/bin/swift-demangle"
         
-        # Strip bloated internal debugging markers from native binaries (~200 MB+)
-        find usr/bin/ -type f -exec strip --strip-debug {} + 2>/dev/null || true
+        # Force-delete heavy static asset archives if not compiling static self-contained packages (~300 MB)
+        find "$RUNNER_TEMP/swift/usr/lib/swift/linux" -type f -name "*.a" -delete
+
+        # 4. Aggressively strip symbols using absolute binaries to ensure reduction (~1.2 GB+ saved)
+        # This targets the actual heavy components like swift-frontend and clang
+        echo "=== Stripping Debug Symbols ==="
+        find "$RUNNER_TEMP/swift/usr/bin" -type f -exec strip --strip-all {} + 2>/dev/null || true
+        find "$RUNNER_TEMP/swift/usr/libexec" -type f -exec strip --strip-all {} + 2>/dev/null || true
+        
         echo "Reduction tasks complete."
         echo ""
 
-        # 4. Measure absolute footprint after processing
+        # 5. Measure absolute footprint after processing
         echo "=== Size AFTER Reduction ==="
         du -sh "$RUNNER_TEMP/swift"
 
