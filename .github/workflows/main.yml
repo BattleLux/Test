@@ -1,0 +1,82 @@
+name: Install and Reduce Swift Size on Ubuntu 26.04
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-cleanup:
+    runs-on: ubuntu-26.04
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Install Essential Swift OS Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y binutils-gold binutils libc6-dev libicu-dev libcurl4 libxml2
+
+    - name: Install Swift
+      run: |
+        SWIFT_VERSION=6.4.0
+        SUFFIX=$([ "$(uname -m)" = "aarch64" ] && echo "-aarch64" || true)
+        NAME="swift-${SWIFT_VERSION}-RELEASE-ubuntu26.04${SUFFIX}"
+        URL="https://swift.org{SWIFT_VERSION}-release/ubuntu2604${SUFFIX}/swift-${SWIFT_VERSION}-RELEASE/${NAME}.tar.gz"
+        
+        echo "Downloading Swift toolchain packages..."
+        curl -fsSL "$URL" -o "$RUNNER_TEMP/swift.tar.gz"
+        curl -fsSL "$URL.sig" -o "$RUNNER_TEMP/swift.tar.gz.sig"
+        
+        echo "Importing PGP verification keys..."
+        curl -fsSL --compressed https://swift.org | gpg --import -
+        
+        echo "Verifying archive signature..."
+        gpg --verify "$RUNNER_TEMP/swift.tar.gz.sig" "$RUNNER_TEMP/swift.tar.gz"
+        
+        echo "Extracting toolchain components..."
+        mkdir -p "$RUNNER_TEMP/swift"
+        tar xzf "$RUNNER_TEMP/swift.tar.gz" -C "$RUNNER_TEMP/swift" --strip-components=1
+        
+        # Inject the executable paths to global pipeline space
+        echo "$RUNNER_TEMP/swift/usr/bin" >> "$GITHUB_PATH"
+
+    - name: Verify Version and Reduce Swift Size
+      run: |
+        # 1. Print Swift runtime details
+        echo "=== Swift Version Info ==="
+        "$RUNNER_TEMP/swift/usr/bin/swift" --version
+        echo ""
+
+        # 2. Check and log directory footprint before processing
+        echo "=== Size BEFORE Reduction ==="
+        du -sh "$RUNNER_TEMP/swift"
+        echo ""
+
+        # 3. Clean up non-compilation development toolbloat
+        echo "=== Trimming Swift Toolchain Infrastructure ==="
+        cd "$RUNNER_TEMP/swift"
+        
+        # Eliminate the heavy LLDB debug engine (~450 MB)
+        rm -f usr/bin/lldb*
+        rm -rf usr/lib/liblldb*
+        
+        # Eliminate optional test frameworks and helper maps (~60 MB)
+        rm -f usr/bin/swift-test usr/bin/swift-demangle
+        
+        # Strip bloated internal debugging markers from native binaries (~200 MB+)
+        find usr/bin/ -type f -exec strip --strip-debug {} + 2>/dev/null || true
+        echo "Reduction tasks complete."
+        echo ""
+
+        # 4. Measure absolute footprint after processing
+        echo "=== Size AFTER Reduction ==="
+        du -sh "$RUNNER_TEMP/swift"
+
+    - name: Sanity Check Build
+      run: |
+        # Smoke test to ensure code compilation still works flawlessly
+        echo 'print("Reduced compilation environment is working perfectly!")' > test.swift
+        swiftc test.swift
+        ./test
