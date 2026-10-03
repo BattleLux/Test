@@ -17,7 +17,14 @@ jobs:
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v5
+      
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+
+      # Create a basic repro.cs file on the fly for testing
+      - name: Create repro.cs
+        run: |
+          echo 'Console.WriteLine("Hello from .NET 10 on " + Environment.OSVersion);' > repro.cs
+
       - run: dotnet run repro.cs
