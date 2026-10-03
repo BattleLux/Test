@@ -16,28 +16,18 @@ jobs:
         SWIFT_VERSION=6.4.0
         SUFFIX=$([ "$(uname -m)" = "aarch64" ] && echo "-aarch64" || true)
         NAME="swift-${SWIFT_VERSION}-RELEASE-ubuntu26.04${SUFFIX}"
-        URL="https://swift.org{SWIFT_VERSION}-release/ubuntu2604${SUFFIX}/swift-${SWIFT_VERSION}-RELEASE/${NAME}.tar.gz"
-        
-        echo "Downloading Swift toolchain packages..."
+        URL="https://download.swift.org/swift-${SWIFT_VERSION}-release/ubuntu2604${SUFFIX}/swift-${SWIFT_VERSION}-RELEASE/${NAME}.tar.gz"
         curl -fsSL "$URL" -o "$RUNNER_TEMP/swift.tar.gz"
         curl -fsSL "$URL.sig" -o "$RUNNER_TEMP/swift.tar.gz.sig"
-        
-        echo "Importing PGP verification keys..."
-        curl -fsSL --compressed https://swift.org | gpg --import -
-        
-        echo "Verifying archive signature..."
+        curl -fsSL --compressed https://www.swift.org/keys/all-keys.asc | gpg --import -
         gpg --verify "$RUNNER_TEMP/swift.tar.gz.sig" "$RUNNER_TEMP/swift.tar.gz"
-        
-        echo "Extracting toolchain components..."
         mkdir -p "$RUNNER_TEMP/swift"
         tar xzf "$RUNNER_TEMP/swift.tar.gz" -C "$RUNNER_TEMP/swift" --strip-components=1
-        
-        # Inject the executable paths to global pipeline space
         echo "$RUNNER_TEMP/swift/usr/bin" >> "$GITHUB_PATH"
 
     - name: Verify Version and Reduce Swift Size
       run: |
-        # 1. Print Swift runtime details
+        # 1. Print Swift version details
         echo "=== Swift Version Info ==="
         "$RUNNER_TEMP/swift/usr/bin/swift" --version
         echo ""
